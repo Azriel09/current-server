@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const moment = require("moment");
-const fetch = (url) => import('node-fetch').then(({default: fetch}) => fetch(url));
+const fetch = (url) =>
+  import("node-fetch").then(({ default: fetch }) => fetch(url));
 const previousWeek = moment().subtract(7, "days").format("YYYY-MM-DD");
 
 const NewsSchema = new mongoose.Schema({
@@ -49,18 +50,23 @@ async function getNews() {
     );
 
     const response = await myNews.json();
-    for (let i = 0; i < response.data.length; i++) {
-      const news = new News({
-        uuid: response.data[i].uuid,
-        title: response.data[i].title,
-        image_url: response.data[i].image_url,
-        url: response.data[i].url,
-        description: response.data[i].description,
-        number: y,
-      });
+    console.log();
+    if (!response.error) {
+      for (let i = 0; i < response.data.length; i++) {
+        const news = new News({
+          uuid: response.data[i].uuid,
+          title: response.data[i].title,
+          image_url: response.data[i].image_url,
+          url: response.data[i].url,
+          description: response.data[i].description,
+          number: y,
+        });
 
-      await news.save();
-      y++;
+        await news.save();
+        y++;
+      }
+    } else {
+      console.log("API LIMIT HAS REACHED");
     }
   }
 }

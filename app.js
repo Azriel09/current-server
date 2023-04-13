@@ -15,22 +15,38 @@ const db = dbConnect();
 const mail_user = require("./db/userConfig");
 const cors = require("cors");
 
-
-const allowedOrigins = ['https://azriel--endearing-faun-3002c7.netlify.app'];
-app.use(cors({
-	  origin: function(origin, callback){
-		      if(!origin) return callback(null, true);
-		      if(allowedOrigins.indexOf(origin) === -1){
-			            const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-			            return callback(new Error(msg), false);
-			          }
-		      return callback(null, true);
-		    }
-
-}));
+function splitArray(inputArray) {
+  const outputArray = [];
+  for (let i = 0; i < inputArray.length; i++) {
+    const subArray = inputArray[i].split(",");
+    const subOutputArray = [];
+    for (let j = 0; j < subArray.length; j += 2) {
+      subOutputArray.push([subArray[j], subArray[j + 1]]);
+    }
+    outputArray.push(subOutputArray);
+  }
+  return outputArray.flat();
+}
+const allowedOrigins = ["https://azriel--endearing-faun-3002c7.netlify.app"];
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) === -1) {
+        const msg =
+          "The CORS policy for this site does not allow access from the specified Origin.";
+        return callback(new Error(msg), false);
+      }
+      return callback(null, true);
+    },
+  })
+);
 
 app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "https://main--melodic-cheesecake-214a6e.netlify.app");
+  res.setHeader(
+    "Access-Control-Allow-Origin",
+    "https://azriel--endearing-faun-3002c7.netlify.app"
+  );
   res.setHeader(
     "Access-Control-Allow-Headers",
     "Origin, X-Requested-With, Content, Accept, Content-Type, Authorization"
@@ -41,7 +57,6 @@ app.use((req, res, next) => {
   );
   next();
 });
-
 
 // app.use(express.json());
 
@@ -62,7 +77,7 @@ const sendResetPasswordMail = (name, email, token) => {
       from: "azrieleuryale@gmail.com",
       to: email,
       subject: "Reset Password",
-      html: `Hello ${name}, please open the following link to reset your password: http://localhost:3000/reset?token=${token}`,
+      html: `Hello ${name}, please open the following link to reset your password: https://azriel--endearing-faun-3002c7.netlify.app/reset?token=${token}`,
     };
     transporter.sendMail(mailOptions, function (error, info) {
       if (error) {
@@ -75,6 +90,7 @@ const sendResetPasswordMail = (name, email, token) => {
     console.log(error);
   }
 };
+
 // register
 app.post("/register", (request, response) => {
   // hash the password
@@ -260,18 +276,22 @@ app.get("/free-endpoint", (request, response) => {
 // authentication endpoint
 app.get("/auth-endpoint", auth, (request, response) => {
   const id = request.user.userId;
-  const selected = request.headers.currency;
+  const selected = [request.headers.currency];
+  const arr = selected[0].split(",");
+  const result = arr;
+  console.log("Added a data");
 
   if (selected) {
     User.findOneAndUpdate(
       { email: request.user.userEmail },
-      { $set: { rates: selected } },
+      { $push: { rates: result } },
       { new: true }
     )
       .then((user) => {
+        console.log(user.rates);
         response.json(user.rates);
       })
-      // catch erroe if the new user wasn't added successfully to the database
+
       .catch((error) => {
         response.status(500).send({
           message: "Error",
@@ -291,6 +311,67 @@ app.get("/auth-endpoint", auth, (request, response) => {
   }
 });
 
+app.get("/delete", auth, (request, response) => {
+  console.log("accessed delete");
+  const id = request.user.userId;
+  const selected = [request.headers.currency];
+  console.log(selected[0].length);
+  if (selected[0].length == 0) {
+    User.findOneAndUpdate(
+      { email: request.user.userEmail },
+      { $set: { rates: [] } }
+    )
+      .then((user) => {
+        response.json(user.rates);
+      })
+
+      .catch((error) => {
+        response.status(500).send({
+          message: "Error",
+          error,
+        });
+      });
+  } else {
+    const result = splitArray(selected);
+    console.log(result);
+    console.log("result");
+    User.findOneAndUpdate(
+      { email: request.user.userEmail },
+      { $set: { rates: result } },
+      { new: true }
+    )
+      .then((user) => {
+        response.json(user.rates);
+      })
+
+      .catch((error) => {
+        response.status(500).send({
+          message: "Error",
+          error,
+        });
+      });
+  }
+});
+
+app.get("/dashboard", auth, (request, response) => {
+  console.log("accessed dashboard");
+
+  User.findOne({ email: request.user.userEmail })
+    .then((user) => {
+      if (user.rates.length === 0) {
+        return;
+      } else {
+        // const arr = user.rates[0][0].split(",");
+        // const result = [arr];
+        console.log(user.rates);
+        response.json(user.rates);
+      }
+    })
+    .catch((e) => {
+      console.log(e);
+    });
+});
+
 app.get("/account", auth, (request, response) => {
   console.log("accessed account");
 
@@ -302,18 +383,4 @@ app.get("/account", auth, (request, response) => {
       console.log(e);
     });
 });
-
-app.get("/dashboard", auth, (request, response) => {
-  console.log("accessed dashboard");
-
-  User.findOne({ email: request.user.userEmail })
-    .then((user) => {
-      console.log(user.rates);
-      response.json(user.rates);
-    })
-    .catch((e) => {
-      console.log(e);
-    });
-});
-
 module.exports = app;
